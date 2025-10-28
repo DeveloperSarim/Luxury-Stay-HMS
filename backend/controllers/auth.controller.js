@@ -3,53 +3,150 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 /**
+ * AUTH CONTROLLER - User login/register system
+ * 
+ * Features:
+ * - User registration with email/password
+ * - User login with JWT token
+ * - Password encryption with bcrypt
+ * - Role-based access control
+ */
+
+/**
  * @swagger
  * tags:
  *   name: Auth
- *   description: User authentication
+ *   description: User authentication system
  */
 
+// Register new user
 exports.register = async (req, res, next) => {
 	try {
 		const { email, password, role } = req.body;
+		
+		// Check if email already exists
 		const existing = await User.findOne({ email });
-		if (existing) return res.status(400).json({ message: 'Email already in use' });
+		if (existing) {
+			return res.status(400).json({ 
+				success: false,
+				message: 'Email already in use' 
+			});
+		}
+		
+		// Encrypt password
 		const passwordHash = await bcrypt.hash(password, 10);
-		const user = await User.create({ email, passwordHash, role });
-		res.status(201).json({ _id: user._id, email: user.email, role: user.role });
-	} catch (err) { next(err); }
+		
+		// Create new user
+		const user = await User.create({ 
+			email, 
+			passwordHash, 
+			role 
+		});
+		
+		// Return user info (without password)
+		res.status(201).json({ 
+			success: true,
+			message: 'User created successfully',
+			user: { 
+				_id: user._id, 
+				email: user.email, 
+				role: user.role 
+			}
+		});
+	} catch (err) { 
+		next(err); 
+	}
 };
 
+// Login user
 exports.login = async (req, res, next) => {
 	try {
 		const { email, password } = req.body;
+		
+		// Find active user
 		const user = await User.findOne({ email, isActive: true });
-		if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-		const ok = await bcrypt.compare(password, user.passwordHash);
-		if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
-		const token = jwt.sign({ sub: user._id, role: user.role }, process.env.JWT_SECRET || 'dev_secret', { expiresIn: '7d' });
-		res.json({ token, user: { _id: user._id, email: user.email, role: user.role } });
-	} catch (err) { next(err); }
+		if (!user) {
+			return res.status(401).json({ 
+				success: false,
+				message: 'Invalid email or password' 
+			});
+		}
+		
+		// Check password
+		const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+		if (!isPasswordValid) {
+			return res.status(401).json({ 
+				success: false,
+				message: 'Invalid email or password' 
+			});
+		}
+		
+		// Create JWT token
+		const token = jwt.sign(
+			{ 
+				sub: user._id, 
+				role: user.role 
+			}, 
+			process.env.JWT_SECRET || 'dev_secret', 
+			{ expiresIn: '7d' }
+		);
+		
+		res.json({ 
+			success: true,
+			message: 'Login successful',
+			token, 
+			user: { 
+				_id: user._id, 
+				email: user.email, 
+				role: user.role 
+			}
+		});
+	} catch (err) { 
+		next(err); 
+	}
 };
 
+// Get current user info
 exports.me = async (req, res) => {
-	res.json({ user: req.user });
+	res.json({ 
+		success: true,
+		user: req.user 
+	});
 };
 
-exports.authMiddleware = (roles = []) => {
+// Middleware to check if user is logged in
+exports.authMiddleware = (allowedRoles = []) => {
 	return (req, res, next) => {
 		try {
-			const hdr = req.headers.authorization || '';
-			const token = hdr.startsWith('Bearer ') ? hdr.slice(7) : null;
-			if (!token) return res.status(401).json({ message: 'Unauthorized' });
+			// Get token from header
+			const authHeader = req.headers.authorization || '';
+			const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+			
+			if (!token) {
+				return res.status(401).json({ 
+					success: false,
+					message: 'No token provided' 
+				});
+			}
+			
+			// Verify token
 			const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
 			req.user = payload;
-			if (roles.length && !roles.includes(payload.role)) {
-				return res.status(403).json({ message: 'Forbidden' });
+			
+			// Check if user has required role
+			if (allowedRoles.length && !allowedRoles.includes(payload.role)) {
+				return res.status(403).json({ 
+					success: false,
+					message: 'Access denied. Required role: ' + allowedRoles.join(' or ') 
+				});
 			}
+			
 			next();
 		} catch (e) {
-			return res.status(401).json({ message: 'Unauthorized' });
+			return res.status(401).json({ 
+				success: false,
+				message: 'Invalid token' 
+			});
 		}
 	};
 };
