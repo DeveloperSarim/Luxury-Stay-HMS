@@ -116,39 +116,48 @@ exports.me = async (req, res) => {
 
 // Middleware to check if user is logged in
 exports.authMiddleware = (allowedRoles = []) => {
-	return (req, res, next) => {
-		try {
-			// Get token from header
-			const authHeader = req.headers.authorization || '';
-			const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
-			
-			if (!token) {
-				return res.status(401).json({ 
-					success: false,
-					message: 'No token provided' 
-				});
-			}
-			
-			// Verify token
-			const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
-			req.user = payload;
-			
-			// Check if user has required role
-			if (allowedRoles.length && !allowedRoles.includes(payload.role)) {
-				return res.status(403).json({ 
-					success: false,
-					message: 'Access denied. Required role: ' + allowedRoles.join(' or ') 
-				});
-			}
-			
-			next();
-		} catch (e) {
-			return res.status(401).json({ 
-				success: false,
-				message: 'Invalid token' 
-			});
-		}
-	};
+    return (req, res, next) => {
+        try {
+            // Extract token from multiple sources for robustness
+            const authHeader = req.headers.authorization || req.headers.Authorization || '';
+            let token = null;
+
+            if (typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
+                token = authHeader.slice(7).trim();
+            }
+
+            if (!token) {
+                // Fallbacks: x-access-token header or query param
+                token = (req.headers['x-access-token'] || req.query.token || '').toString().trim();
+            }
+
+            if (!token) {
+                return res.status(401).json({ 
+                    success: false,
+                    message: 'No token provided' 
+                });
+            }
+            
+            // Verify token
+            const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+            req.user = payload;
+            
+            // Check if user has required role
+            if (allowedRoles.length && !allowedRoles.includes(payload.role)) {
+                return res.status(403).json({ 
+                    success: false,
+                    message: 'Access denied. Required role: ' + allowedRoles.join(' or ') 
+                });
+            }
+            
+            next();
+        } catch (e) {
+            if (e && e.name === 'TokenExpiredError') {
+                return res.status(401).json({ success: false, message: 'Token expired' });
+            }
+            return res.status(401).json({ success: false, message: 'Invalid token' });
+        }
+    };
 };
 
 

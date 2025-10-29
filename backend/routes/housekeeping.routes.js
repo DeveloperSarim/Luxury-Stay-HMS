@@ -11,8 +11,48 @@ const { authMiddleware } = require('../controllers/auth.controller');
  */
 router.get('/', authMiddleware(['manager', 'housekeeping']), ctrl.list);
 
+/**
+ * @swagger
+ * /api/housekeeping:
+ *   post:
+ *     tags: [Housekeeping]
+ *     summary: Create housekeeping task
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [roomId, task]
+ *             properties:
+ *               roomId:
+ *                 type: string
+ *               task:
+ *                 type: string
+ *                 example: "Change linens"
+ *     responses:
+ *       201:
+ *         description: Task created
+ */
 router.post('/', authMiddleware(['manager']), ctrl.create);
-router.patch('/:id/complete', authMiddleware(['manager', 'housekeeping']), ctrl.complete);
+
+/**
+ * @swagger
+ * /api/housekeeping/{id}/complete:
+ *   put:
+ *     tags: [Housekeeping]
+ *     summary: Mark housekeeping task complete
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Task completed
+ */
+router.put('/:id/complete', authMiddleware(['manager', 'housekeeping']), ctrl.complete);
 
 module.exports = router;
 

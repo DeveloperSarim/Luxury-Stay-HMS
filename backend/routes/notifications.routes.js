@@ -11,7 +11,23 @@ const { authMiddleware } = require('../controllers/auth.controller');
  */
 router.get('/', authMiddleware(), ctrl.list);
 
-router.patch('/:id/read', authMiddleware(), ctrl.markRead);
+/**
+ * @swagger
+ * /api/notifications/{id}/read:
+ *   put:
+ *     tags: [Notifications]
+ *     summary: Mark notification as read
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Marked as read
+ */
+router.put('/:id/read', authMiddleware(), ctrl.markRead);
 
 module.exports = router;
 

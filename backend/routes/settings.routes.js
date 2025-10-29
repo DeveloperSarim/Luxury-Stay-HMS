@@ -17,6 +17,21 @@ router.get('/:key', authMiddleware(['admin', 'manager']), ctrl.get);
  *   put:
  *     tags: [Settings]
  *     summary: Set a setting
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               value:
+ *                 type: string
  */
 router.put('/:key', authMiddleware(['admin']), ctrl.set);
 
