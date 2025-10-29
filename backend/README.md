@@ -51,7 +51,7 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-  "email": "john@hotel.com",
+  "email": "john@luxurystay.com",
   "password": "password123"
 }
 ```
